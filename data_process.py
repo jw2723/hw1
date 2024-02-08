@@ -21,18 +21,17 @@ grouped = df.groupby('Species')['TreeAge'].mean().reset_index()
 # select the top 7 oldest species based on average
 oldest_species = grouped.sort_values(by='TreeAge', ascending=False).head(7)
 
-# oldest_species.to_csv(r"/Users/jingqiwang/Desktop/In Progress/Cornell University/INFO 5311 visualization/hw1/oldest_species.csv", index=False)
+oldest_species.to_csv(r"/Users/jingqiwang/Desktop/In Progress/Cornell University/INFO 5311 visualization/hw1/oldest_species.csv", index=False)
 
 print(oldest_species)
 
-# Get the names of the 7 oldest species
+# get names of the 7 species got earlier from "oldest_species" calculations
 oldest_species_names = oldest_species['Species'].tolist()
 
-# Filter the original dataframe to get only rows belonging to these species
+# get the rows with those 7 species
 oldest_species_trees = df[df['Species'].isin(oldest_species_names)]
 
-# Extract relevant columns (species name and address)
-species_address_data = oldest_species_trees[['Species', 'qAddress']]
+# filter out data for location to use on map(species name, address, latitude & longitude)
+species_address_data = oldest_species_trees[['Species', 'qAddress', 'Latitude', 'Longitude']]
 
-# Save this data to a CSV file
 species_address_data.to_csv("/Users/jingqiwang/Desktop/In Progress/Cornell University/INFO 5311 visualization/hw1/oldest_species_addresses.csv", index=False)

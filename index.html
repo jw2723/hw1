@@ -4,6 +4,7 @@
     <title>Oldest Trees of San Francisco</title>
     <script src="https://d3js.org/d3.v6.min.js"></script>
     <style>
+      /* Styles for bar graph */
         .bar {
             fill: rgb(55, 118, 48);
         }
@@ -17,35 +18,61 @@
             text-anchor: middle;
             font-size: 16px;
         }
+        /* Styles for legend */
+        .legend {
+        border: 1px solid black;
+        padding: 10px; /* padding inside the legend */
+        display: inline-block;
+        position: absolute;
+        top: 600px; /* position */
+        left: 700px; 
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px; /* betweeen items */
+        }
+        .legend-color-box { /* color box to indicate dots meaning */
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
     </style>
 </head>
+
 <body>
+    <!-- bar graph -->
     <svg width="800" height="500"></svg>
 
+    <!-- map -->
+    <svg width="800" height="600" id="map"></svg>
+
     <script>
+        // for bar graph
         const margin = {top: 50, right: 30, bottom: 100, left: 60},
               width = 800 - margin.left - margin.right,
               height = 500 - margin.top - margin.bottom;
-
+        // bar graph
         const svg = d3.select("svg")
             .attr("width", width + margin.left + margin.right)
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        // Title
+        // bar graph title
         svg.append("text")
             .attr("class", "title")
             .attr("x", width / 2)
             .attr("y", -10)
-            .style("font-weight", 700)
+            .style("font-weight", 600)
             .style("font-size", 25)
             .text("Oldest Trees of San Francisco");
 
+        // data from oldest_species to bar graph
         d3.csv("oldest_species.csv").then(function(data) {
             data.sort((a, b) => a.TreeAge - b.TreeAge);
 
-            // X-axis
+            // x-axis
             const x = d3.scaleBand()
               .range([0, width])
               .domain(data.map(d => d.Species))
@@ -67,12 +94,13 @@
               .style("font-size", 20)
               .text("Species");
 
-            // Y-axis
+            // y-axis
             const y = d3.scaleLinear()
               .domain([0, d3.max(data, d => parseFloat(d.TreeAge))])
               .range([height, 0]);
             svg.append("g")
               .call(d3.axisLeft(y));
+            // y-axis label
             svg.append("text")
               .attr("class", "y label")
               .attr("text-anchor", "end")
@@ -84,8 +112,7 @@
               .style("font-size", 20)
               .text("Age");
 
-
-            // Bars
+            // bars
             svg.selectAll("mybar")
               .data(data)
               .join("rect")
@@ -95,20 +122,85 @@
                 .attr("y", d => y(d.TreeAge))
                 .attr("height", d => height - y(d.TreeAge));
 
+          });
 
-            // // Bar labels
-            // svg.selectAll(".text")
-            //   .data(data)
-            //   .enter()
-            //   .append("text")
-            //   .attr("class","label")
-            //   .attr("x", (d) => x(d.Species) + x.bandwidth() / 2)
-            //   .attr("y", (d) => y(d.TreeAge) - 5)
-            //   .attr("text-anchor", "middle")
-            //   .text((d) => d.TreeAge.toFixed(2));
+        // map width & height
+        const svgMap = d3.select("#map"),
+              mapWidth = +svgMap.attr("width"),
+               mapHeight = +svgMap.attr("height");
+
+        // assign species names to colors
+        const speciesColor = d3.scaleOrdinal(d3.schemeCategory10);
+        // define each of the 7 species' names (for legend)
+        const speciesNames = ["Spruce Spp", "English laurel", 
+                              "Shamel Ash: Evergreen Ash", 
+                              "Silver Maple", "Edible Loquat", 
+                              "Japanese Privet", "Honey Locust 'Shademaster'"
+                             ];
 
 
+        // map adjustment
+        const projection = d3.geoMercator()
+                             .center([-122.433701, 37.767683]) 
+                             .scale(170000) // map zoom in
+                             .translate([mapWidth / 2, mapHeight / 2]);
+        
+        // path generator
+        const pathGenerator = d3.geoPath().projection(projection);
+        // get SF map in geojson
+        d3.json("san_francisco.geojson").then(sfData => {
+            svgMap.selectAll("path")  // map paths
+                .data(sfData.features)
+                .enter()
+                .append("path")
+                .attr("d", pathGenerator)
+                .attr("fill", "gray");
+
+            // trees on map thru longitude & latitude
+            d3.csv("oldest_species_addresses.csv").then(treeData => {
+                svgMap.selectAll("circle")  // dots on maps
+                    .data(treeData)
+                    .enter()
+                    .append("circle")
+                    .attr("cx", d => projection([d.Longitude, d.Latitude])[0]) // x
+                    .attr("cy", d => projection([d.Longitude, d.Latitude])[1]) // y
+                    .attr("r", 3)
+                    .attr("fill", d => speciesColor(d.Species)); // colored by species
+            });
+
+            // map title
+            svgMap.append("text")
+                .attr("x", (mapWidth / 2))             
+                .attr("y", 20)
+                .attr("text-anchor", "middle")  
+                .style("font-weight", 600)
+                .style("font-size", 25)
+                .text("Where Are The Oldest Trees in San Francisco?");
+
+            // legend
+            const legend = d3.select("body").append("div")
+                .attr("class", "legend");
+
+            // legend items for each species
+            speciesNames.forEach(species => {
+                // container for each legend items
+                const legendItem = legend.append("div")
+                    .attr("class", "legend-item");
+
+                // color boxes
+                legendItem.append("div")
+                    .attr("class", "legend-color-box")
+                    .style("background-color", speciesColor(species));
+
+                // each species names next to the color boxes
+                legendItem.append("span")
+                    .text(species);
+            });
+          
         });
+
+
+
     </script>
 </body>
 </html>
